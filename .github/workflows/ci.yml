@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Build libft.a
+        run: make
+
+      - name: Rebuild from scratch (re)
+        run: make re
+
+      - name: Check Makefile rules exist
+        run: |
+          for rule in all clean fclean re; do
+            make -n "$rule" > /dev/null
+          done
+
+      - name: Build test suite
+        run: cc -Wall -Wextra -Werror tests/test_libft.c -L. -lft -o tests/test_libft
+
+      - name: Run test suite
+        run: ./tests/test_libft
+
+      - name: Run test suite under valgrind
+        run: valgrind --leak-check=full --error-exitcode=1 ./tests/test_libft
+
+      - name: Verify no unused/root-only files (norm layout)
+        run: |
+          extra=$(ls -1 *.c 2>/dev/null | grep -v '^ft_' || true)
+          if [ -n "$extra" ]; then
+            echo "Unexpected .c files at root: $extra"
+            exit 1
+          fi
+
+      - name: Clean
+        run: make fclean
